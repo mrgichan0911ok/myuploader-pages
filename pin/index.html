@@ -52,6 +52,7 @@
   }
   input:focus{border-color:var(--acc)}
   input.num{letter-spacing:.3em; font-size:19px}
+  input.num::placeholder{letter-spacing:normal; font-size:15px}
   .hint{font-size:11.5px; color:var(--dim); line-height:1.55; margin-top:10px}
   .hint b{color:#c8d2e0}
   button.primary{
@@ -254,6 +255,7 @@
   /* ---------- 대시보드 ---------- */
   function sub(t){ $("barSub").textContent = t; }
   function overlay(on, title, text, spin){
+    showReset(false);
     $("overlay").classList.toggle("on", !!on);
     $("ovTitle").textContent = title || "";
     $("ovText").innerHTML = text || "";
@@ -315,18 +317,23 @@
     }
   }
 
-  function tokenError(){
-    overlay(true, "토큰이 거부되었습니다",
-      "토큰이 만료되었거나 권한이 없습니다.<br>새 토큰을 넣으려면 아래 버튼을 누르세요.", false);
-    sub("토큰 오류 · " + hhmm());
+  function showReset(on){
     var b = $("btnReset");
-    if (!b){
+    if (!b && on){
       b = document.createElement("button");
       b.id = "btnReset"; b.textContent = "설정 다시 하기";
       b.style.cssText = "margin-top:16px; border:1px solid #262b36; background:#1b1f27; color:#e7ecf3; border-radius:12px; padding:9px 14px; font-size:13px";
       b.addEventListener("click", resetAll);
       $("overlay").appendChild(b);
     }
+    if (b) b.style.display = on ? "inline-block" : "none";
+  }
+
+  function tokenError(){
+    overlay(true, "토큰이 거부되었습니다",
+      "토큰이 만료되었거나 권한이 없습니다.<br>새 토큰을 넣으려면 아래 버튼을 누르세요.", false);
+    sub("토큰 오류 · " + hhmm());
+    showReset(true);
   }
 
   function render(html){
