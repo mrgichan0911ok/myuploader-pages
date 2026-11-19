@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; connect-src https://api.github.com; frame-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'">
+<title>볼케이노 대시보드</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --line:#262b36; --fg:#e7ecf3; --dim:#8b94a6;
+    --acc:#ff6a2b; --acc2:#ffa23a; --err:#ff5b6e;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+    display:flex; flex-direction:column; overflow:hidden;
+    padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom);
+  }
+  .screen{flex:1; display:none; flex-direction:column; min-height:0}
+  .screen.on{display:flex}
+  .center{justify-content:center; align-items:center; padding:24px; overflow-y:auto}
+  .brand{display:flex; align-items:center; gap:10px; margin-bottom:22px; width:100%; max-width:380px}
+  .brand .logo{width:38px; height:38px; border-radius:10px; background:linear-gradient(160deg,var(--acc2),var(--acc) 55%,#c73b12); box-shadow:0 6px 18px rgba(255,106,43,.25); flex:none}
+  .brand b{font-size:17px; letter-spacing:.2px}
+  .brand span{display:block; font-size:11px; color:var(--dim); font-weight:400; margin-top:2px}
+  .card{width:100%; max-width:380px; background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:20px}
+  .dots{display:flex; gap:14px; justify-content:center; margin:6px 0 18px}
+  .dots i{width:14px; height:14px; border-radius:50%; border:1.5px solid #3b424f; transition:all .12s}
+  .dots i.on{background:var(--acc); border-color:var(--acc); transform:scale(1.08)}
+  .msg{min-height:18px; text-align:center; font-size:12.5px; color:var(--dim); margin-bottom:8px}
+  .msg.err{color:var(--err)}
+  .keypad{display:grid; grid-template-columns:repeat(3,1fr); gap:10px}
+  .key{
+    height:56px; border-radius:14px; border:1px solid var(--line); background:#1d212a; color:var(--fg);
+    font-size:21px; font-weight:600; display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .key:active{background:#2a303c; transform:scale(.98)}
+  .key.fn{font-size:14px; color:var(--dim)}
+  .key.go{background:linear-gradient(160deg,var(--acc2),var(--acc)); color:#231000; border-color:transparent}
+  label{display:block; font-size:12.5px; color:var(--dim); margin:14px 0 6px}
+  label:first-of-type{margin-top:0}
+  input{
+    width:100%; height:46px; padding:0 12px; border-radius:12px; border:1px solid var(--line);
+    background:#11141a; color:var(--fg); font-size:16px; outline:none;
+  }
+  input:focus{border-color:var(--acc)}
+  input.num{letter-spacing:.3em; font-size:19px}
+  .hint{font-size:11.5px; color:var(--dim); line-height:1.55; margin-top:10px}
+  .hint b{color:#c8d2e0}
+  button.primary{
+    width:100%; height:50px; margin-top:16px; border:0; border-radius:14px; cursor:pointer;
+    background:linear-gradient(160deg,var(--acc2),var(--acc)); color:#231000; font-size:16px; font-weight:700;
+  }
+  button.primary:disabled{opacity:.45}
+  button.ghost{
+    width:100%; height:44px; margin-top:10px; border:1px solid var(--line); border-radius:12px;
+    background:transparent; color:var(--dim); font-size:13.5px; cursor:pointer;
+  }
+  .bar{display:flex; align-items:center; gap:8px; padding:8px 10px; border-bottom:1px solid var(--line); background:#12151b}
+  .bar .t{font-size:13px; font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .bar .t small{display:block; font-weight:400; color:var(--dim); font-size:10.5px; margin-top:1px}
+  .bar button{
+    border:1px solid var(--line); background:#1b1f27; color:var(--fg); border-radius:10px;
+    font-size:12.5px; padding:7px 10px; cursor:pointer; white-space:nowrap;
+  }
+  .bar button:active{background:#262c38}
+  #frameWrap{flex:1; min-height:0; position:relative; background:#0f1115}
+  #frame{position:absolute; inset:0; width:100%; height:100%; border:0; background:#0f1115}
+  #overlay{
+    position:absolute; inset:0; display:none; flex-direction:column; gap:10px; align-items:center; justify-content:center;
+    padding:26px; text-align:center; background:#0f1115; color:var(--dim); font-size:13.5px; line-height:1.6;
+  }
+  #overlay.on{display:flex}
+  #overlay b{color:var(--fg); font-size:15px}
+  #overlay small{color:#6f7787; font-size:11px; word-break:break-all}
+  .spin{
+    width:26px; height:26px; border-radius:50%; border:2.5px solid #2b313d; border-top-color:var(--acc);
+    animation:sp .8s linear infinite; margin-bottom:4px;
+  }
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .shake{animation:sh .28s}
+  @keyframes sh{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+</style>
+</head>
+<body>
+
+<!-- 1) PIN 잠금 -->
+<section id="lock" class="screen on center">
+  <div class="brand">
+    <div class="logo"></div>
+    <div><b>볼케이노 대시보드</b><span>PIN 6자리로 열기</span></div>
+  </div>
+  <div class="card" id="lockCard">
+    <div class="dots" id="dots"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="msg" id="lockMsg">PIN을 입력하세요</div>
+    <div class="keypad" id="keypad">
+      <div class="key" data-k="1">1</div><div class="key" data-k="2">2</div><div class="key" data-k="3">3</div>
+      <div class="key" data-k="4">4</div><div class="key" data-k="5">5</div><div class="key" data-k="6">6</div>
+      <div class="key" data-k="7">7</div><div class="key" data-k="8">8</div><div class="key" data-k="9">9</div>
+      <div class="key fn" data-k="del">지우기</div><div class="key" data-k="0">0</div><div class="key go" data-k="ok">열기</div>
+    </div>
+  </div>
+</section>
+
+<!-- 2) 최초 1회 설정 -->
+<section id="setup" class="screen center">
+  <div class="brand">
+    <div class="logo"></div>
+    <div><b>처음 설정</b><span>이 기기에만 저장됩니다</span></div>
+  </div>
+  <div class="card">
+    <label for="sPin">잠금 PIN (숫자 6자리)</label>
+    <input id="sPin" class="num" type="password" inputmode="numeric" autocomplete="new-password" maxlength="6" placeholder="확정한 PIN">
+    <label for="sPin2">PIN 확인</label>
+    <input id="sPin2" class="num" type="password" inputmode="numeric" autocomplete="new-password" maxlength="6" placeholder="같은 번호 한 번 더">
+    <label for="sToken">GitHub 읽기 전용 토큰 (PAT)</label>
+    <input id="sToken" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_... 또는 ghp_...">
+    <div class="hint">
+      토큰은 PIN으로 암호화되어 <b>이 폰의 브라우저에만</b> 저장되고 어디로도 전송되지 않습니다.
+      접속하는 곳은 GitHub 한 곳(api.github.com)뿐입니다.
+    </div>
+    <div class="msg err" id="setupMsg"></div>
+    <button class="primary" id="sSave">저장하고 열기</button>
+    <button class="ghost" id="sHelp">토큰 발급 방법 보기</button>
+  </div>
+</section>
+
+<!-- 3) 대시보드 -->
+<section id="dash" class="screen">
+  <div class="bar">
+    <div class="t"><span id="barTitle">볼케이노 대시보드</span><small id="barSub">불러오는 중…</small></div>
+    <button id="btnRefresh">새로고침</button>
+    <button id="btnLock">잠금</button>
+  </div>
+  <div id="frameWrap">
+    <iframe id="frame" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms"
+            referrerpolicy="no-referrer" title="볼케이노 대시보드"></iframe>
+    <div id="overlay"><div class="spin"></div><b id="ovTitle">불러오는 중</b><div id="ovText"></div></div>
+  </div>
+</section>
+
+<script>
+"use strict";
+(function(){
+  var REPO = "mrgichan0911ok/volcano-work";
+  var PATH = "보고서/폰대시보드/volcano-dashboard.html";
+  var API  = "https://api.github.com/repos/" + REPO + "/contents/" + PATH.split("/").map(encodeURIComponent).join("/");
+  var KEY  = "vdp.v1";
+  var ITER = 310000;
+  var MARK = "vdp-check-v1";
+
+  var state = { pin:"", fails:0, token:null, fetching:false, unlocking:false };
+  function $(id){ return document.getElementById(id); }
+  var enc = new TextEncoder(), dec = new TextDecoder();
+
+  function b64e(buf){ var u=new Uint8Array(buf), s=""; for(var i=0;i<u.length;i++) s+=String.fromCharCode(u[i]); return btoa(s); }
+  function b64d(str){ var bin=atob(str), u=new Uint8Array(bin.length); for(var i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i); return u; }
+  function show(id){ ["lock","setup","dash"].forEach(function(s){ $(s).classList.toggle("on", s===id); }); }
+  function store(){ try { return JSON.parse(localStorage.getItem(KEY)||"null"); } catch(e){ return null; } }
+
+  async function deriveKey(pin, salt, iter){
+    var base = await crypto.subtle.importKey("raw", enc.encode(pin), "PBKDF2", false, ["deriveKey"]);
+    return crypto.subtle.deriveKey({ name:"PBKDF2", salt:salt, iterations:iter, hash:"SHA-256" },
+      base, { name:"AES-GCM", length:256 }, false, ["encrypt","decrypt"]);
+  }
+  async function aesEnc(key, text){
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var ct = await crypto.subtle.encrypt({name:"AES-GCM", iv:iv}, key, enc.encode(text));
+    return { iv:b64e(iv), ct:b64e(ct) };
+  }
+  async function aesDec(key, ivB64, ctB64){
+    return dec.decode(await crypto.subtle.decrypt({name:"AES-GCM", iv:b64d(ivB64)}, key, b64d(ctB64)));
+  }
+
+  /* ---------- 잠금 화면 ---------- */
+  function paintDots(){
+    var d = $("dots").children;
+    for (var i=0;i<d.length;i++) d[i].classList.toggle("on", i < state.pin.length);
+  }
+  function lockMsg(t, err){
+    var m = $("lockMsg"); m.textContent = t; m.classList.toggle("err", !!err);
+  }
+  function keyPress(k){
+    if (state.unlocking) return;
+    if (k === "del"){ state.pin = state.pin.slice(0,-1); paintDots(); lockMsg("PIN을 입력하세요"); return; }
+    if (k === "ok"){ tryUnlock(); return; }
+    if (state.pin.length >= 6) return;
+    state.pin += k; paintDots();
+    if (state.pin.length === 6) tryUnlock();
+  }
+
+  async function tryUnlock(){
+    if (state.unlocking) return;
+    var cfg = store();
+    if (!cfg){ show("setup"); return; }
+    if (state.pin.length !== 6){ lockMsg("PIN 6자리를 모두 입력하세요"); return; }
+    state.unlocking = true; lockMsg("확인 중…");
+    var keep = false;
+    try{
+      var key = await deriveKey(state.pin, b64d(cfg.salt), cfg.iter);
+      var chk = null;
+      try { chk = await aesDec(key, cfg.ivV, cfg.ver); } catch(e){ chk = null; }
+      if (chk !== MARK) throw new Error("bad-pin");
+      state.token = await aesDec(key, cfg.ivT, cfg.ct);
+      state.pin = ""; paintDots();
+      state.fails = 0; state.unlocking = false;
+      show("dash"); load();
+      return;
+    }catch(e){
+      state.fails++; state.pin = ""; paintDots();
+      var card = $("lockCard");
+      card.classList.remove("shake"); void card.offsetWidth; card.classList.add("shake");
+      var wait = Math.min(3000, 300 * Math.pow(2, Math.max(0, state.fails-1)));
+      if (state.fails >= 3) lockMsg("PIN이 맞지 않습니다 (" + state.fails + "회)", true);
+      else lockMsg("PIN이 맞지 않습니다", true);
+      if (wait > 400){ keep = true; setTimeout(function(){ state.unlocking = false; }, wait); }
+    }
+    if (!keep) state.unlocking = false;
+  }
+
+  /* ---------- 최초 설정 ---------- */
+  async function saveSetup(){
+    var p1 = $("sPin").value.trim(), p2 = $("sPin2").value.trim(), tok = $("sToken").value.trim();
+    var m = $("setupMsg"); m.textContent = "";
+    if (!/^\d{6}$/.test(p1)){ m.textContent = "PIN은 숫자 6자리로 정해 주세요."; return; }
+    if (p1 !== p2){ m.textContent = "PIN 확인이 일치하지 않습니다."; return; }
+    if (tok.length < 20 || !/^(github_pat_|ghp_|gho_|ghs_)/.test(tok)){
+      m.textContent = "GitHub 토큰(github_pat_… / ghp_…)을 넣어 주세요."; return;
+    }
+    $("sSave").disabled = true;
+    try{
+      var salt = crypto.getRandomValues(new Uint8Array(16));
+      var key = await deriveKey(p1, salt, ITER);
+      var ver = await aesEnc(key, MARK);
+      var tkn = await aesEnc(key, tok);
+      localStorage.setItem(KEY, JSON.stringify({ v:1, iter:ITER, salt:b64e(salt), ivV:ver.iv, ver:ver.ct, ivT:tkn.iv, ct:tkn.ct }));
+      state.token = tok; state.fails = 0;
+      $("sToken").value = ""; $("sPin").value = ""; $("sPin2").value = "";
+      show("dash"); load();
+    }catch(e){
+      m.textContent = "저장에 실패했습니다: " + (e && e.message ? e.message : e);
+    }finally{
+      $("sSave").disabled = false;
+    }
+  }
+
+  /* ---------- 대시보드 ---------- */
+  function sub(t){ $("barSub").textContent = t; }
+  function overlay(on, title, text, spin){
+    $("overlay").classList.toggle("on", !!on);
+    $("ovTitle").textContent = title || "";
+    $("ovText").innerHTML = text || "";
+    var s = document.querySelector("#overlay .spin");
+    if (s) s.style.display = spin === false ? "none" : "block";
+  }
+  function hhmm(){
+    var d = new Date(), p = function(n){ return (n<10?"0":"")+n; };
+    return p(d.getHours()) + ":" + p(d.getMinutes());
+  }
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]; }); }
+
+  async function load(){
+    if (!state.token){ show("lock"); return; }
+    if (state.fetching) return;
+    state.fetching = true;
+    sub("불러오는 중…");
+    overlay(true, "불러오는 중", "GitHub에서 최신 대시보드를 받고 있습니다.", true);
+    try{
+      var res = await fetch(API, {
+        method:"GET", cache:"no-store",
+        headers:{
+          "Authorization":"Bearer " + state.token,
+          "Accept":"application/vnd.github.raw",
+          "X-GitHub-Api-Version":"2022-11-28"
+        }
+      });
+      if (res.status === 401){ return tokenError(); }
+      if (res.status === 403){
+        if (res.headers.get("x-ratelimit-remaining") === "0"){
+          overlay(true, "잠시 후 다시 시도", "GitHub 요청 한도에 걸렸습니다. 몇 분 뒤 ‘새로고침’을 눌러 주세요.", false);
+          sub("요청 한도"); return;
+        }
+        return tokenError();
+      }
+      if (res.status === 429){
+        overlay(true, "잠시 후 다시 시도", "요청이 너무 잦습니다. 조금 뒤 ‘새로고침’을 눌러 주세요.", false);
+        sub("요청 한도"); return;
+      }
+      if (res.status === 404){
+        overlay(true, "아직 대시보드 파일이 없습니다",
+          "PC의 폰 대시보드 생성 작업(#85)이 끝나면 여기에 바로 나타납니다.<br>잠시 뒤 ‘새로고침’을 눌러 보세요.", false);
+        sub("파일 없음 (404) · " + hhmm());
+        return;
+      }
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      var html = await res.text();
+      if (!html || html.length < 20) throw new Error("빈 응답");
+      render(html);
+      sub("기준 " + hhmm() + " 불러옴 · " + (html.length >= 1024 ? (html.length/1024).toFixed(1) + "KB" : html.length + "B"));
+      overlay(false);
+    }catch(e){
+      overlay(true, "불러오지 못했습니다",
+        (navigator.onLine ? "네트워크·권한을 확인한 뒤 ‘새로고침’을 눌러 주세요." : "인터넷이 끊겨 있습니다.") +
+        "<br><small>" + esc(e && e.message || e) + "</small>", false);
+      sub("오류 · " + hhmm());
+    }finally{
+      state.fetching = false;
+    }
+  }
+
+  function tokenError(){
+    overlay(true, "토큰이 거부되었습니다",
+      "토큰이 만료되었거나 권한이 없습니다.<br>새 토큰을 넣으려면 아래 버튼을 누르세요.", false);
+    sub("토큰 오류 · " + hhmm());
+    var b = $("btnReset");
+    if (!b){
+      b = document.createElement("button");
+      b.id = "btnReset"; b.textContent = "설정 다시 하기";
+      b.style.cssText = "margin-top:16px; border:1px solid #262b36; background:#1b1f27; color:#e7ecf3; border-radius:12px; padding:9px 14px; font-size:13px";
+      b.addEventListener("click", resetAll);
+      $("overlay").appendChild(b);
+    }
+  }
+
+  function render(html){
+    var head = "";
+    if (!/<meta[^>]+viewport/i.test(html)) head += '<meta name="viewport" content="width=device-width, initial-scale=1">';
+    if (!/<base\s/i.test(html)) head += '<base target="_blank">';
+    var out = html;
+    if (head){
+      if (/<head[^>]*>/i.test(out)) out = out.replace(/<head[^>]*>/i, function(m0){ return m0 + head; });
+      else if (/<html[^>]*>/i.test(out)) out = out.replace(/<html[^>]*>/i, function(m0){ return m0 + "<head>" + head + "</head>"; });
+      else out = head + out;
+    }
+    $("frame").srcdoc = out;
+  }
+
+  function resetAll(){
+    if (!confirm("저장된 PIN과 토큰을 이 기기에서 지웁니다. 계속할까요?")) return;
+    localStorage.removeItem(KEY);
+    state.token = null; state.pin = ""; state.fails = 0; state.unlocking = false;
+    paintDots(); lockMsg("PIN을 입력하세요");
+    sub(""); overlay(false); $("frame").srcdoc = "";
+    show("setup");
+  }
+
+  /* ---------- 이벤트 ---------- */
+  $("keypad").addEventListener("click", function(e){
+    var t = e.target.closest("[data-k]");
+    if (t) keyPress(t.getAttribute("data-k"));
+  });
+  document.addEventListener("keydown", function(e){
+    if (!$("lock").classList.contains("on")) return;
+    if (/^\d$/.test(e.key)) keyPress(e.key);
+    else if (e.key === "Backspace") keyPress("del");
+    else if (e.key === "Enter") keyPress("ok");
+  });
+  $("sSave").addEventListener("click", saveSetup);
+  $("sHelp").addEventListener("click", function(){
+    alert("토큰 발급 방법\n\n" +
+      "1) github.com → 우측 상단 프로필 → Settings\n" +
+      "2) 맨 아래 Developer settings → Personal access tokens → Fine-grained tokens → Generate new token\n" +
+      "3) Repository access: Only select repositories → mrgichan0911ok/volcano-work\n" +
+      "4) Permissions → Repository permissions → Contents: Read-only (나머지는 No access)\n" +
+      "5) 만료 기간 선택(예: 1년) → Generate token\n" +
+      "6) github_pat_… 로 시작하는 값을 복사해 위 칸에 붙여넣기");
+  });
+  $("btnRefresh").addEventListener("click", function(){ load(); });
+  $("btnLock").addEventListener("click", function(){
+    state.token = null; state.pin = ""; state.fails = 0; state.unlocking = false;
+    $("frame").srcdoc = ""; overlay(false); sub("");
+    paintDots(); lockMsg("PIN을 입력하세요");
+    show("lock");
+  });
+
+  /* ---------- 시작 ---------- */
+  if (store()) show("lock"); else show("setup");
+  if ("serviceWorker" in navigator){
+    navigator.serviceWorker.register("sw.js").catch(function(){});
+  }
+})();
+</script>
+</body>
+</html>
